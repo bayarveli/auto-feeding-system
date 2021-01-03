@@ -1,0 +1,34 @@
+Import('env')
+
+Executable_Name = 'AFS'
+
+Source_Files = [
+				'main.c', 
+				'board.c',
+				'm_usb.c',
+				'esp32.c',
+				'motorapi.c',
+				'rtcapi.c',
+				'switch.c',
+				'timerapi.c',
+				'eepromapi.c'
+				]
+
+Libs = []
+CppPath = []
+LibPath = []
+
+CppPath.append('#include')
+
+Libs.append('libavrdriverlib')
+LibPath.append('#lib')
+
+env.Append(CPPPATH=CppPath)
+env.Append(LIBS=Libs)
+env.Append(LIBPATH=LibPath)
+
+program = env.createExecutable(executableName=Executable_Name, outputDirectory = '../build', sourceFiles = Source_Files)
+
+programHex = env.createHexFile(hexName=Executable_Name, outputDirectory = '../build', elfFile=Executable_Name)
+
+
