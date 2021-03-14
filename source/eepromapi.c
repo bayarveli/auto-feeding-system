@@ -16,7 +16,7 @@ void eepromInit(void)
 	i2c_init();
 }
 
-int8_t eepromWrite(uint16_t aStartAddress, uint8_t* aData, uint8_t aDataLen, int8_t* aIdx)
+int8_t eepromWrite(uint16_t aStartAddress, uint8_t* aData, uint8_t aDataLen)
 {
 	int8_t status = 0;
 	uint8_t registerAddress[2] = { 0 };
@@ -38,8 +38,6 @@ int8_t eepromWrite(uint16_t aStartAddress, uint8_t* aData, uint8_t aDataLen, int
 		{
 			return status;
 		}
-
-		*aIdx = idx;
 
 		_delay_ms(6);
 	}
@@ -70,6 +68,10 @@ int8_t eepromRead(uint16_t aStartAddress, uint8_t* aData, uint8_t aDataLen)
 		}
 
 		*(aData++) = data;
+
+		_delay_ms(10);
+		_delay_ms(10);
+		_delay_ms(10);
 	}
 
 	return 0;

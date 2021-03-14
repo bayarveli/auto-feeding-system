@@ -24,6 +24,8 @@ env['OBJSUFFIX'] = '.o'
 env['PROGSUFFIX'] = '.elf'
 env['LIBSUFFIX'] = ''
 env['LIBDIRPREFIX'] = '-L'
+
+# To use a library, use the -l switch. Linker expands it as libLibraryName.a
 env['LIBLINKPREFIX'] = '-l'
 
 #env['_LIBDIRFLAGS'] = '${_concat(LIBDIRPREFIX, LIBPATH, LIBDIRSUFFIX, __env__)}'

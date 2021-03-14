@@ -20,7 +20,7 @@
 
 typedef struct
 {
-	uint8_t pondIdx;
+	uint8_t pondTime;
 	uint16_t feedingTime;
 } Pond;
 

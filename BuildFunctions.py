@@ -3,12 +3,10 @@ import os
 Import('env')
 
 def createExecutable(env, executableName, outputDirectory, sourceFiles):
-   
-    print (executableName)
     objectList = []
     
     for sourceFile in sourceFiles:
-        sourceFilePath = File(sourceFile).get_abspath()       
+        sourceFilePath = File(sourceFile).get_abspath()     
         sourceFileName = File(sourceFile).name       
            
         objectFilePath = outputDirectory + '/' + os.path.splitext(sourceFileName)[0]       

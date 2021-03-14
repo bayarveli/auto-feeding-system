@@ -24,6 +24,6 @@ void esp32_init();
 int8_t esp32_isReady(void);
 void esp32_isConnected(CommStatus* aEspConnectionStatus);
 uint8_t esp32_isDataReceived(uint8_t *aData, uint8_t *aDataLen);
-void esp32_sendMessage(uint8_t *aData, uint8_t *aDataLen);
+void esp32_sendMessage(uint8_t *aData, uint8_t aDataLen);
 
 #endif /* INCLUDE_ESP32_H_ */

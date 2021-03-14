@@ -7,6 +7,7 @@
 
 #include "esp32.h"
 #include <string.h>
+#include <stdio.h>
 
 typedef enum
 {
@@ -34,6 +35,8 @@ static uint8_t gSerialRxBuffer[SERIAL_RX_BUFFER];
 static int32_t gSerialRxIdx = 0;
 static uint8_t gSerialTxBuffer[SERIAL_TX_BUFFER];
 
+const char* sendFormat= "AT+CIPSEND=0,%d\r\n";
+
 CommState espCommState = eTEST;
 UsartState espUsartState = eREAD;
 
@@ -45,7 +48,7 @@ void esp32_receiveInterrupt(void)
 	if((UCSR1A & ((1 << FE1) | (1 << DOR1) | (1 << UPE1))) == 0)
 	{
 		gSerialRxBuffer[gSerialRxIdx++] = data;
-		gSerialRxBuffer[gSerialRxIdx] = '\0';
+		// gSerialRxBuffer[gSerialRxIdx] = '\0';
 
 		usb_tx_char(data);
 
@@ -100,7 +103,7 @@ int8_t esp32_executeTransaction(char* aCommand, char* aKeyResponse)
 
 			}
 			isTransactionComplete = 1;
-			gSerialRxIdx = 0;
+			// gSerialRxIdx = 0;
 			break;
 		default:
 			break;
@@ -124,6 +127,7 @@ int8_t esp32_isReady(void)
 			if (esp32_executeTransaction("AT\r\n", "OK") == 0)
 			{
 				espCommState = eCONFIG;
+				gSerialRxIdx = 0;
 			}
 			else
 			{
@@ -133,9 +137,11 @@ int8_t esp32_isReady(void)
 		case eCONFIG:
 			if (esp32_executeTransaction("AT+CIPMUX=1\r\n", "OK") == 0)
 			{
+				gSerialRxIdx = 0;
 				_delay_ms(500);
 				if (esp32_executeTransaction("AT+CIPSERVER=1,1001\r\n", "OK") == 0)
 				{
+					gSerialRxIdx = 0;
 					status = 1;
 				}
 				else
@@ -163,11 +169,13 @@ void esp32_isConnected(CommStatus* aEspConnectionStatus)
 	if (esp32_executeTransaction(0, ",CONNECT") == 0)
 	{
 		*aEspConnectionStatus = eCONNECTED;
+		gSerialRxIdx = 0;
 	}
 
 	if (esp32_executeTransaction(0, ",CLOSED") == 0)
 	{
 		*aEspConnectionStatus = eDISCONNECTED;
+		gSerialRxIdx = 0;
 	}
 }
 
@@ -178,9 +186,10 @@ uint8_t esp32_isDataReceived(uint8_t *aData, uint8_t *aDataLen)
 	// Example: +IPD,0,11:TESTMESSAGE
 	if (strstr(gSerialRxBuffer, "+IPD,") != 0)
 	{
-		int8_t recMsgLen = strlen(gSerialRxBuffer);
-		usb_tx_decimal(recMsgLen);
-		usb_tx_char('\n');
+		// int8_t recMsgLen = gSerialRxIdx - 1; //strlen(gSerialRxBuffer);
+//		usb_tx_string("Hey: ");
+//		usb_tx_decimal(gSerialRxIdx);
+//		usb_tx_char(' ');
 
 		char* messagePtr = gSerialRxBuffer;
 
@@ -194,28 +203,41 @@ uint8_t esp32_isDataReceived(uint8_t *aData, uint8_t *aDataLen)
 
 		msgIdx = 0;
 		messagePtr++;
-		while(*messagePtr != '\0')
+//		while(*messagePtr != '\0')
+//		{
+//			aData[msgIdx++] = *(messagePtr++);
+//		}
+
+		while(msgIdx < *aDataLen)
 		{
 			aData[msgIdx++] = *(messagePtr++);
 		}
 
 		gSerialRxBuffer[0] = '\0';
 		gSerialRxIdx = 0;
-		PORTF |= 1 << 4;
+//		usb_tx_string("You: ");
+		// PORTF |= 1 << 4;
 		return 0;
 	}
 	else
 	{
 		*aDataLen = 0;
-		PORTF &= ~(1 << 4);
+		// PORTF &= ~(1 << 4);
 		return -1;
 	}
 }
 
-void esp32_sendMessage(uint8_t *aData, uint8_t *aDataLen)
+void esp32_sendMessage(uint8_t *aData, uint8_t aDataLen)
 {
-	//				char command[] = "AT+CIPSEND=0,7\r\n";
-	//				usart_transmit(command, 1);
-	//				_delay_ms(250);
-	//				usart_transmit(gMsgBuf, 1);
+	int8_t sz = 0;
+
+	sz = snprintf(gSerialTxBuffer, (SERIAL_TX_BUFFER - 1), sendFormat, aDataLen);
+
+	if ((sz > 0) && (sz < (SERIAL_TX_BUFFER - 1)))
+	{
+		usart_transmit(gSerialTxBuffer, 1);
+	}
+
+	_delay_ms(250);
+	usart_transmit(aData, 1);
 }

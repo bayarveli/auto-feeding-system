@@ -10,18 +10,19 @@ Source_Files = [
 				'motorapi.c',
 				'rtcapi.c',
 				'switch.c',
-				'timerapi.c',
+				'counterapi.c',
 				'eepromapi.c'
 				]
 
+LibPath = []
 Libs = []
 CppPath = []
-LibPath = []
 
 CppPath.append('#include')
+LibPath.append("#lib")
 
-Libs.append('libavrdriverlib')
-LibPath.append('#lib')
+# Linker expands it as "libavrdriverlib.a" 
+Libs.append('avrdriverlib')
 
 env.Append(CPPPATH=CppPath)
 env.Append(LIBS=Libs)
@@ -30,5 +31,3 @@ env.Append(LIBPATH=LibPath)
 program = env.createExecutable(executableName=Executable_Name, outputDirectory = '../build', sourceFiles = Source_Files)
 
 programHex = env.createHexFile(hexName=Executable_Name, outputDirectory = '../build', elfFile=Executable_Name)
-
-

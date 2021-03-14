@@ -40,6 +40,9 @@
 #define TIMER_13_FAST_PWM_ICR						14
 #define TIMER_13_FAST_PWM_OCR						15
 
+
+static void (*timer3OCRAMatchCallback)(void);
+
 /*
  * Waveform definition
  */
@@ -87,6 +90,8 @@ typedef enum
 
 typedef enum
 {
+	NORMAL = 0,
+	TOGGLE_OUT = 1,
 	NOT_INVERTED = 2,
 	INVERTED = 3,
 }OutputCompareMode;
@@ -100,5 +105,9 @@ void timer_set_ocr_value(TimerType timer, OutputCompareType outCompReg, uint16_t
 void timer_start(TimerType timer, TimerClockSelect clock);
 
 void timer_stop(TimerType timer);
+
+void timer_clear(TimerType timer);
+
+void timer_setCallbackTimer3OCRAMatch(void (*ptr)());
 
 #endif /* INCLUDE_TIMER_H_ */

@@ -90,18 +90,18 @@ int8_t setRtcTime(DateTime *aSetTimeValue)
 
 int8_t compareDateTime(DateTime* aCurrTime, DateTime* aTaskTime)
 {
-	if (aCurrTime->year > aTaskTime->year){}
-	else if (aCurrTime->year < aTaskTime->year){}
-	else
-	{
-		if (aCurrTime->month > aTaskTime->month){}
-		else if (aCurrTime->month < aTaskTime->month){}
-		else
-		{
-			if (aCurrTime->day > aTaskTime->day){}
-			else if (aCurrTime->day < aTaskTime->day){}
-			else
-			{
+//	if (aCurrTime->year > aTaskTime->year){}
+//	else if (aCurrTime->year < aTaskTime->year){}
+//	else
+//	{
+//		if (aCurrTime->month > aTaskTime->month){}
+//		else if (aCurrTime->month < aTaskTime->month){}
+//		else
+//		{
+//			if (aCurrTime->day > aTaskTime->day){}
+//			else if (aCurrTime->day < aTaskTime->day){}
+//			else
+//			{
 				if (aCurrTime->hours > aTaskTime->hours){}
 				else if (aCurrTime->hours < aTaskTime->hours){}
 				else
@@ -120,9 +120,9 @@ int8_t compareDateTime(DateTime* aCurrTime, DateTime* aTaskTime)
 						}
 					}
 				}
-			}
-		}
-	}
+//			}
+//		}
+//	}
 
 	return -1;
 }

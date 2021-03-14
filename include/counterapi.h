@@ -5,13 +5,17 @@
  *      Author: veli-
  */
 
-#ifndef INCLUDE_TIMERAPI_H_
-#define INCLUDE_TIMERAPI_H_
+#ifndef INCLUDE_COUNTERAPI_H_
+#define INCLUDE_COUNTERAPI_H_
 
 #include "stdint.h"
 
+
+
+void initCounter();
 void setTimeout(uint16_t aTimeout);
+void clearTimeout();
 int8_t getTimeoutStatus();
 
 
-#endif /* INCLUDE_TIMERAPI_H_ */
+#endif /* INCLUDE_COUNTERAPI_H_ */
