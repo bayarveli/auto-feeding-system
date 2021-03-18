@@ -100,6 +100,7 @@ int main(void)
 	// F4- Green
 	// F5- Blue
 	gpio_setValue(PORT_F, PIN_4);
+	gpio_setValue(PORT_F, PIN_5);
 
 	delaySecond(1500);
 
@@ -140,35 +141,25 @@ int main(void)
 					if (gSystemState == eSYS_CONFIG)
 					{
 						gEspResponseBuffer[0] = MSG_ID_TASK_INFO_RESP;
-
-						usb_tx_decimal(gMsgBufLen);
-						usb_tx_string("Task Info ");
 						startAddress |= gMsgBuf[1] << 8;
 						startAddress |= gMsgBuf[2];
-
-						usb_tx_decimal(startAddress);
-						usb_tx_string("Start Addr ");
-
-						for (tt = 0; tt < TASK_SIZE; tt++)
-						{
-							usb_tx_hex(gMsgBuf[3 + tt]);
-							usb_tx_char(' ');
-						}
-
 						status = eepromWrite(startAddress, &gMsgBuf[3], TASK_SIZE);
 
 						if (status != 0)
 						{
 							gSystemState = eSYS_FAIL;
-							gEspResponseBuffer[1] = 0xFF;
-							break;
+							gEspResponseBuffer[1] = 0x22;
+							// break;
+						}
+						else
+						{
+							gEspResponseBuffer[1] = 0x11;
 						}
 
-						gEspResponseBuffer[1] = 0x11;
+
 						esp32_sendMessage(gEspResponseBuffer, 2);
 						taskIdx = 0;
 					}
-					// TODO: Send OK response
 					break;
 				case MSG_ID_ABORT_TASK:
 					if (gSystemState != eSYS_ABORT_TASK)
@@ -272,20 +263,22 @@ int main(void)
 		switch (gSystemState)
 		{
 		case eSYS_INIT:
+
 			if (esp32_isReady() > 0)
 			{
-				usb_tx_string("ESP is READY  \r\n");
+				usb_tx_string("Init ready.");
 			}
 			else
 			{
-				usb_tx_string("ESP cannot start.  \r\n");
+				usb_tx_string("Init fail.");
 			}
-
+			usb_tx_push();
 			gSystemState = eSYS_READ_TASK;
 			// TODO: Can be added retry count for esp32
 			break;
 		case eSYS_READ_TASK:
-
+//			usb_tx_string("eSYS_READ_TASK");
+//			usb_tx_push();
 			if (taskIdx > MAX_TASK_COUNT)
 			{
 				gSystemState = eSYS_IDLE;
@@ -334,6 +327,8 @@ int main(void)
 			taskIdx++;
 			break;
 		case eSYS_WAIT_TASK:
+//			usb_tx_string("eSYS_WAIT_TASK");
+//			usb_tx_push();
 			gpio_setValue(PORT_F, PIN_4);
 			// TODO: get current time and compare with task start time
 			status = getRtcTime(&currTime);
@@ -354,7 +349,8 @@ int main(void)
 
 			break;
 		case eSYS_START_TASK:
-
+//			usb_tx_string("eSYS_START_TASK");
+//			usb_tx_push();
 			if (pondIdx >= currentTask.totalPond)
 			{
 				gSystemState = eSYS_FINISH_TASK;
@@ -406,7 +402,8 @@ int main(void)
 
 			break;
 		case eSYS_FINISH_TASK:
-
+//			usb_tx_string("eSYS_FINISH_TASK");
+//			usb_tx_push();
 			if (0 == operationFlags.isDriveMotorStarted)
 			{
 				motor_driveMoveBackward();
@@ -424,11 +421,13 @@ int main(void)
 			}
 			break;
 		case eSYS_ABORT_TASK:
+//			usb_tx_string("eSYS_ABORT_TASK");
+//			usb_tx_push();
 			// TODO: run motor backward
 			break;
 		case eSYS_IDLE:
-			gpio_setValue(PORT_F, PIN_4);
-			gpio_setValue(PORT_F, PIN_5);
+//			usb_tx_string("eSYS_IDLE");
+//			usb_tx_push();
 			// Check time and wait for the next day.
 			// TODO: MCU can sleep in given periods. Think about that.
 
@@ -451,24 +450,23 @@ int main(void)
 
 			break;
 		case eSYS_CONFIG:
-			// usb_tx_string("SYS CONF ");
-//			gpio_clearValue(PORT_F, PIN_4);
-			delaySecond(50);
+//			usb_tx_string("eSYS_CONFIG");
+//			usb_tx_push();
+
 			break;
 		case eSYS_FAIL:
-//			gpio_setValue(PORT_F, PIN_4);
-			usb_tx_string("SYS FAIL ");
-			usb_tx_push();
+//			usb_tx_string("eSYS_FAIL");
+//			usb_tx_push();
 			return 0;
 			break;
 		default:
 			break;
 		}
 
-		delaySecond(50);
-		usb_tx_char('>');
-		usb_tx_decimal(gSystemState);
-		usb_tx_push();
+// 		delaySecond(20);
+//		usb_tx_char('>');
+//		usb_tx_decimal(gSystemState);
+//		usb_tx_push();
 	}
 
 	return 0;

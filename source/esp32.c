@@ -35,6 +35,12 @@ static uint8_t gSerialRxBuffer[SERIAL_RX_BUFFER];
 static int32_t gSerialRxIdx = 0;
 static uint8_t gSerialTxBuffer[SERIAL_TX_BUFFER];
 
+uint8_t gTestRxBuffer[128] = { 0 };
+uint8_t gTestRxIdx = 0;
+uint8_t gIpdIsComplete = 0;
+
+unsigned char ipdHeader[4] = { 0 };
+
 const char* sendFormat= "AT+CIPSEND=0,%d\r\n";
 
 CommState espCommState = eTEST;
@@ -42,23 +48,157 @@ UsartState espUsartState = eREAD;
 
 void esp32_receiveInterrupt(void)
 {
+	static uint8_t state = 0;
 	unsigned char data = UDR1;
 
 	// Check for error
 	if((UCSR1A & ((1 << FE1) | (1 << DOR1) | (1 << UPE1))) == 0)
 	{
-		gSerialRxBuffer[gSerialRxIdx++] = data;
-		// gSerialRxBuffer[gSerialRxIdx] = '\0';
 
-		usb_tx_char(data);
+		// usb_tx_char(data);
 
 		if(gSerialRxIdx > (SERIAL_RX_BUFFER - 1))
 		{
 			// if buffer is full, than reset the index.
 			gSerialRxIdx = 0;
 		}
+
+		if ('+' == data)
+		{
+			state = 1;
+		}
+//		else if (('I' == data) && (state == 1))
+//		{
+//			state = 2;
+//		}
+//		else if (('P' == data) && (2 == state))
+//		{
+//			state = 3;
+//		}
+//		else if (('D' == data) && (3 == state))
+//		{
+//			state = 4;
+//		}
+//		else if ((',' == data) && (4 == state))
+//		{
+//			state = 5;
+//		}
+		else
+		{
+			if (state == 1)
+			{
+				if ('\r' == data)
+				{
+					gTestRxIdx = 0;
+					state = 0;
+					gIpdIsComplete = 1;
+				}
+				else
+				{
+
+					gTestRxBuffer[gTestRxIdx++] = data;
+					if (gTestRxIdx == 3)
+					{
+						if (gTestRxBuffer[0] == 'I' &&
+							gTestRxBuffer[1] == 'P' &&
+							gTestRxBuffer[2] == 'D')
+						{
+							// GO ON
+						}
+						else
+						{
+							state = 0;
+							gTestRxIdx = 0;
+						}
+					}
+					gIpdIsComplete = 0;
+				}
+			}
+			else
+			{
+				gSerialRxBuffer[gSerialRxIdx++] = data;
+			}
+		}
+
 	}
 }
+
+uint8_t esp32_isDataReceived(uint8_t *aData, uint8_t *aDataLen)
+{
+	char messageLen[4] = { 0 };
+	int8_t msgIdx = 0;
+
+	// Example: +IPD,0,11:TESTMESSAGE
+	// +IPD, is eliminated in interrupt routine
+	// 0,11:TESTMESSAGE
+	if (gIpdIsComplete)
+	{
+		char* messagePtr = gTestRxBuffer;
+
+		while(*(messagePtr++) != ',' );
+		while(*(messagePtr++) != ',' );
+		while(*messagePtr != ':')
+		{
+			messageLen[msgIdx++] = *(messagePtr++);
+		}
+
+		*aDataLen = atoi(messageLen);
+
+		msgIdx = 0;
+		messagePtr++;
+
+		while(msgIdx < *aDataLen)
+		{
+			aData[msgIdx] = *(messagePtr++);
+			usb_tx_char(aData[msgIdx]);
+			msgIdx++;
+		}
+
+		gIpdIsComplete = 0;
+
+	}
+	else
+	{
+		*aDataLen = 0;
+	}
+
+	return 0;
+
+	//	if (strstr(gSerialRxBuffer, "+IPD,") != 0)
+//	{
+//		char* messagePtr = gSerialRxBuffer;
+//
+//		// Dismiss +IPD,
+//		while(*(messagePtr++) != ',' );
+//		// Dismiss 0,
+//		while(*(messagePtr++) != ',' );
+//		// Get data count
+//		while(*messagePtr != ':')
+//		{
+//			messageLen[msgIdx++] = *(messagePtr++);
+//		}
+//		*aDataLen = atoi(messageLen);
+//
+//		msgIdx = 0;
+//		messagePtr++;
+//
+//		while(msgIdx < *aDataLen)
+//		{
+//			aData[msgIdx++] = *(messagePtr++);
+//		}
+//
+//		gSerialRxBuffer[0] = '\0';
+//		gSerialRxIdx = 0;
+//
+//		return 0;
+//	}
+//	else
+//	{
+//		*aDataLen = 0;
+//		return -1;
+//	}
+}
+
 
 void esp32_init()
 {
@@ -73,9 +213,6 @@ void esp32_init()
 	usart_setCallback(esp32_receiveInterrupt);
 	usart_open();
 }
-
-
-
 
 int8_t esp32_executeTransaction(char* aCommand, char* aKeyResponse)
 {
@@ -103,7 +240,6 @@ int8_t esp32_executeTransaction(char* aCommand, char* aKeyResponse)
 
 			}
 			isTransactionComplete = 1;
-			// gSerialRxIdx = 0;
 			break;
 		default:
 			break;
@@ -179,53 +315,6 @@ void esp32_isConnected(CommStatus* aEspConnectionStatus)
 	}
 }
 
-uint8_t esp32_isDataReceived(uint8_t *aData, uint8_t *aDataLen)
-{
-	char messageLen[4] = { 0 };
-	int8_t msgIdx = 0;
-	// Example: +IPD,0,11:TESTMESSAGE
-	if (strstr(gSerialRxBuffer, "+IPD,") != 0)
-	{
-		// int8_t recMsgLen = gSerialRxIdx - 1; //strlen(gSerialRxBuffer);
-//		usb_tx_string("Hey: ");
-//		usb_tx_decimal(gSerialRxIdx);
-//		usb_tx_char(' ');
-
-		char* messagePtr = gSerialRxBuffer;
-
-		while(*(messagePtr++) != ',' );
-		while(*(messagePtr++) != ',' );
-		while(*messagePtr != ':')
-		{
-			messageLen[msgIdx++] = *(messagePtr++);
-		}
-		*aDataLen = atoi(messageLen);
-
-		msgIdx = 0;
-		messagePtr++;
-//		while(*messagePtr != '\0')
-//		{
-//			aData[msgIdx++] = *(messagePtr++);
-//		}
-
-		while(msgIdx < *aDataLen)
-		{
-			aData[msgIdx++] = *(messagePtr++);
-		}
-
-		gSerialRxBuffer[0] = '\0';
-		gSerialRxIdx = 0;
-//		usb_tx_string("You: ");
-		// PORTF |= 1 << 4;
-		return 0;
-	}
-	else
-	{
-		*aDataLen = 0;
-		// PORTF &= ~(1 << 4);
-		return -1;
-	}
-}
 
 void esp32_sendMessage(uint8_t *aData, uint8_t aDataLen)
 {
@@ -238,6 +327,6 @@ void esp32_sendMessage(uint8_t *aData, uint8_t aDataLen)
 		usart_transmit(gSerialTxBuffer, 1);
 	}
 
-	_delay_ms(250);
+	_delay_ms(500);
 	usart_transmit(aData, 1);
 }
