@@ -11,7 +11,8 @@ Source_Files = [
 				'rtcapi.c',
 				'switch.c',
 				'counterapi.c',
-				'eepromapi.c'
+				'eepromapi.c',
+				'ledapi.c'
 				]
 
 LibPath = []

@@ -42,6 +42,8 @@
 
 
 static void (*timer3OCRAMatchCallback)(void);
+static void (*timer0OCRAMatchCallback)(void);
+static void (*timer0OverflowCallback)(void);
 
 /*
  * Waveform definition
@@ -109,5 +111,10 @@ void timer_stop(TimerType timer);
 void timer_clear(TimerType timer);
 
 void timer_setCallbackTimer3OCRAMatch(void (*ptr)());
+
+void timer_setCallbackTimer0OCRAMatch(void (*ptr)());
+
+void timer_setCallbackTimer0Overflow(void (*ptr)());
+
 
 #endif /* INCLUDE_TIMER_H_ */

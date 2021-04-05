@@ -11,6 +11,8 @@
 #include <string.h>
 
 #define F_CPU 					16000000UL
+#define DEBUG					0
+
 
 #include "board.h"
 #include "util/delay.h"
@@ -22,7 +24,7 @@
 #include "rtcapi.h"
 #include "counterapi.h"
 #include "esp32.h"
-
+#include "ledapi.h"
 #include "timer.h"
 
 // ENUM
@@ -45,6 +47,7 @@ typedef struct
 	uint8_t isDriveMotorStarted;
 	uint8_t isFeedingEnabled;
 	uint8_t isFeedingMotorStarted;
+	uint8_t switchStatus;
 	uint32_t totalMoveTime;
 } StateFlag;
 
@@ -85,27 +88,28 @@ int main(void)
 
 	// SYSTEM INITIALIZATION
     board_init();
+    led_init();
+    switch_init();
     motor_init();
     esp32_init();
     eepromInit();
     rtcInit();
     initCounter();
-    m_usb_init();
-
     sei();
 
+#if DEBUG
+    m_usb_init();
 	while (!m_usb_isconnected())
 		; // wait for a connection
+#endif
 
-	// F4- Green
-	// F5- Blue
-	gpio_setValue(PORT_F, PIN_4);
-	gpio_setValue(PORT_F, PIN_5);
+	led_changeState(eGREEN, eLEDBLINK250MS);
+	led_changeState(eBLUE, eLEDBLINK250MS);
 
 	delaySecond(1500);
 
-	gpio_clearValue(PORT_F, PIN_4);
-	gpio_clearValue(PORT_F, PIN_5);
+	led_changeState(eGREEN, eLEDOFF);
+	led_changeState(eBLUE, eLEDOFF);
 
 	motor_driveSetMotorSpeed(255);
 	motor_feedingSetMotorSpeed(255);
@@ -116,6 +120,7 @@ int main(void)
 
 		if (espCommStatus == eCONNECTED)
 		{
+			led_changeState(eGREEN, eLEDBLINK500MS);
 			esp32_isDataReceived(gMsgBuf, &gMsgBufLen);
 
 			if (gMsgBufLen > 0)
@@ -128,14 +133,12 @@ int main(void)
 					if ((gSystemState != eSYS_FINISH_TASK) && (gSystemState != eSYS_START_TASK))
 					{
 							gSystemState = eSYS_CONFIG;
-							// Blue led on in config mode
-							gpio_setValue(PORT_F, PIN_5);
+							led_changeState(eBLUE, eLEDON);
 					}
 					break;
 				case MSG_ID_END_CONFIG:
 					gSystemState = eSYS_READ_TASK;
-					// Blue led off in config mode
-					gpio_clearValue(PORT_F, PIN_5);
+					led_changeState(eBLUE, eLEDOFF);
 					break;
 				case MSG_ID_TASK_INFO:
 					if (gSystemState == eSYS_CONFIG)
@@ -149,6 +152,7 @@ int main(void)
 						{
 							gSystemState = eSYS_FAIL;
 							gEspResponseBuffer[1] = 0x22;
+							led_changeState(eGREEN, eLEDBLINK250MS);
 							// break;
 						}
 						else
@@ -176,6 +180,7 @@ int main(void)
 					status = setRtcTime(&setTime);
 					if (status != 0)
 					{
+						led_changeState(eGREEN, eLEDBLINK500MS);
 						gSystemState = eSYS_FAIL;
 						break;
 					}
@@ -185,6 +190,13 @@ int main(void)
 					// TODO: When requested, send current rtc time
 					status = getRtcTime(&setTime);
 
+					if (status != 0)
+					{
+						led_changeState(eGREEN, eLEDBLINK1000MS);
+						gSystemState = eSYS_FAIL;
+						break;
+					}
+#if DEBUG
 					usb_tx_decimal(setTime.year);
 					m_usb_tx_char(' ');
 					usb_tx_decimal(setTime.month);
@@ -199,6 +211,7 @@ int main(void)
 					m_usb_tx_char(' ');
 					usb_tx_decimal(setTime.dayOfWeek);
 					m_usb_tx_char(' ');
+#endif
 					break;
 				case MSG_ID_GET_STATE:
 					// TODO: When requested, send gSystemState value.
@@ -253,7 +266,7 @@ int main(void)
 		}
 		else if (espCommStatus == eDISCONNECTED)
 		{
-			// usb_tx_string("Comm Status = DISCONNECTED \r\n");
+			led_changeState(eGREEN, eLEDON);
 		}
 		else
 		{
@@ -266,19 +279,21 @@ int main(void)
 
 			if (esp32_isReady() > 0)
 			{
-				usb_tx_string("Init ready.");
+				//! ESP initialization is OK
 			}
 			else
 			{
-				usb_tx_string("Init fail.");
+				//! ESP initialization error
+				led_changeState(eBLUE, eLEDBLINK250MS);
+				gSystemState = eSYS_FAIL;
+				break;
 			}
-			usb_tx_push();
+
 			gSystemState = eSYS_READ_TASK;
+
 			// TODO: Can be added retry count for esp32
 			break;
 		case eSYS_READ_TASK:
-//			usb_tx_string("eSYS_READ_TASK");
-//			usb_tx_push();
 			if (taskIdx > MAX_TASK_COUNT)
 			{
 				gSystemState = eSYS_IDLE;
@@ -292,6 +307,7 @@ int main(void)
 			operationFlags.isDriveMotorStarted = 0;
 			operationFlags.isFeedingEnabled = 0;
 			operationFlags.isFeedingMotorStarted = 0;
+			operationFlags.switchStatus = 0;
 			operationFlags.totalMoveTime = 0;
 
 			// Calculate the task info address
@@ -302,6 +318,7 @@ int main(void)
 
 			if (status != 0)
 			{
+				led_changeState(eBLUE, eLEDBLINK500MS);
 				gSystemState = eSYS_FAIL;
 				break;
 			}
@@ -327,14 +344,11 @@ int main(void)
 			taskIdx++;
 			break;
 		case eSYS_WAIT_TASK:
-//			usb_tx_string("eSYS_WAIT_TASK");
-//			usb_tx_push();
-			gpio_setValue(PORT_F, PIN_4);
-			// TODO: get current time and compare with task start time
 			status = getRtcTime(&currTime);
 
 			if (status != 0)
 			{
+				led_changeState(eBLUE, eLEDBLINK1000MS);
 				gSystemState = eSYS_FAIL;
 				break;
 			}
@@ -342,22 +356,17 @@ int main(void)
 			if (compareDateTime(&currTime, &currentTask.startTime) == 1)
 			{
 				gSystemState = eSYS_START_TASK;
-				gpio_clearValue(PORT_F, PIN_4);
 			}
 
 			delaySecond(100);
-
 			break;
 		case eSYS_START_TASK:
-//			usb_tx_string("eSYS_START_TASK");
-//			usb_tx_push();
 			if (pondIdx >= currentTask.totalPond)
 			{
 				gSystemState = eSYS_FINISH_TASK;
 				break;
 			}
 
-			// TODO:
 			if (1 == operationFlags.isDriveEnabled)
 			{
 				if (0 == operationFlags.isDriveMotorStarted) {
@@ -402,8 +411,6 @@ int main(void)
 
 			break;
 		case eSYS_FINISH_TASK:
-//			usb_tx_string("eSYS_FINISH_TASK");
-//			usb_tx_push();
 			if (0 == operationFlags.isDriveMotorStarted)
 			{
 				motor_driveMoveBackward();
@@ -413,27 +420,29 @@ int main(void)
 				operationFlags.isDriveMotorStarted = 1;
 			}
 
-			if (getTimeoutStatus())
+			getSwitchStatus(&operationFlags.switchStatus);
+
+			if ((getTimeoutStatus()) || (operationFlags.switchStatus))
 			{
 				clearTimeout();
-				motor_driveStop();
-				gSystemState = eSYS_READ_TASK;
+
+				if (operationFlags.switchStatus)
+				{
+					motor_driveStop();
+					gSystemState = eSYS_READ_TASK;
+				}
 			}
 			break;
 		case eSYS_ABORT_TASK:
-//			usb_tx_string("eSYS_ABORT_TASK");
-//			usb_tx_push();
 			// TODO: run motor backward
 			break;
 		case eSYS_IDLE:
-//			usb_tx_string("eSYS_IDLE");
-//			usb_tx_push();
 			// Check time and wait for the next day.
 			// TODO: MCU can sleep in given periods. Think about that.
-
 			status = getRtcTime(&currTime);
 			if (status != 0)
 			{
+				led_changeState(eBLUE, eLEDBLINK1000MS);
 				gSystemState = eSYS_FAIL;
 				break;
 			}
@@ -450,23 +459,13 @@ int main(void)
 
 			break;
 		case eSYS_CONFIG:
-//			usb_tx_string("eSYS_CONFIG");
-//			usb_tx_push();
-
 			break;
 		case eSYS_FAIL:
-//			usb_tx_string("eSYS_FAIL");
-//			usb_tx_push();
 			return 0;
 			break;
 		default:
 			break;
 		}
-
-// 		delaySecond(20);
-//		usb_tx_char('>');
-//		usb_tx_decimal(gSystemState);
-//		usb_tx_push();
 	}
 
 	return 0;
